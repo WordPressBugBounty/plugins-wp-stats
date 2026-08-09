@@ -1,49 +1,72 @@
 <?php
-/*
- * Uninstall plugin
+/**
+ * Uninstall WP-Stats.
+ *
+ * Runs with the plugin inactive, so nothing here may depend on the plugin's own
+ * classes or constants being loaded. The row names are therefore spelled out
+ * rather than read from WP_Stats_Options.
+ *
+ * @package WP-Stats
  */
-if ( !defined( 'WP_UNINSTALL_PLUGIN' ) )
-	exit ();
 
-$option_names = array(
-	'stats_mostlimit'
-	, 'stats_display'
-	, 'stats_url'
-	, 'widget_stats'
-);
-
-
-if ( is_multisite() ) {
-	$ms_sites = wp_get_sites();
-
-	if( 0 < sizeof( $ms_sites ) ) {
-		foreach ( $ms_sites as $ms_site ) {
-			switch_to_blog( $ms_site['blog_id'] );
-			if( sizeof( $option_names ) > 0 ) {
-				foreach( $option_names as $option_name ) {
-					delete_option( $option_name );
-					plugin_uninstalled();
-				}
-			}
-		}
-	}
-
-	restore_current_blog();
-} else {
-	if( sizeof( $option_names ) > 0 ) {
-		foreach( $option_names as $option_name ) {
-			delete_option( $option_name );
-			plugin_uninstalled();
-		}
-	}
+if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
+	exit();
 }
 
 /**
- * Delete plugin table when uninstalled
+ * Delete the plugin's rows for the current site.
  *
- * @access public
+ * The pre-3.0.0 names are still listed: an install deactivated before the
+ * migration fired would otherwise keep them for ever, and tests/test-metadata.php
+ * asserts over wp_options with a LIKE rather than naming rows, so a row added
+ * later and forgotten here fails the suite.
+ *
  * @return void
  */
-function plugin_uninstalled() {
-	global $wpdb;
+function wp_stats_uninstall_site() {
+	$option_names = array(
+		// The settings row and the upgrade markers.
+		'wp_stats_options',
+		'wp_stats_version',
+		// Pre-3.0.0 rows, including the unprefixed name an unreleased 3.0.0
+		// build used before the prefix rule landed.
+		'stats_options',
+		'stats_db_version',
+		'stats_mostlimit',
+		'stats_display',
+		'stats_url',
+		// Widget instances.
+		'widget_stats',
+	);
+
+	foreach ( $option_names as $option_name ) {
+		delete_option( $option_name );
+	}
+}
+
+if ( is_multisite() ) {
+	/*
+	 * 'number' => 0 lifts WP_Site_Query's default cap of 100, which would
+	 * otherwise leave the rows behind on every site past the hundredth while
+	 * still reporting a successful uninstall. 'fields' => 'ids' avoids
+	 * hydrating WP_Site objects the loop never looks at.
+	 */
+	$wp_stats_site_ids = get_sites(
+		array(
+			'fields' => 'ids',
+			'number' => 0,
+		)
+	);
+
+	foreach ( $wp_stats_site_ids as $wp_stats_site_id ) {
+		// switch_to_blog() pushes onto a stack, so the restore belongs inside
+		// the loop -- restoring once at the end leaves it unwound by one.
+		switch_to_blog( (int) $wp_stats_site_id );
+
+		wp_stats_uninstall_site();
+
+		restore_current_blog();
+	}
+} else {
+	wp_stats_uninstall_site();
 }

@@ -1,0 +1,67 @@
+/*
+ * WP-Stats front end.
+ *
+ * Everything is scoped under .wp-stats, the wrapper WP_Stats_Page::render()
+ * puts round the page, so these rules cannot reach a theme's own markup - or
+ * WP-PageNavi's, which uses the same .wp-pagenavi class names. Until 3.0.0 the
+ * plugin stood aside entirely when WP-PageNavi was active; scoping is what
+ * makes that unnecessary.
+ *
+ * Nothing here sets font-family, font-size or colour outright: the page is
+ * theme content and should read like the rest of it. The borders and the
+ * current-page background come from currentColor and from custom properties
+ * with sensible fallbacks, so a theme can retune them without a specificity
+ * fight, and so light and dark schemes both work without a second stylesheet.
+ * Logical properties throughout, so RTL needs none either.
+ */
+
+.wp-stats .wp-pagenavi {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.25em;
+	margin-block: 1em;
+}
+
+.wp-stats .wp-pagenavi a,
+.wp-stats .wp-pagenavi span {
+	padding-block: 0.15em;
+	padding-inline: 0.45em;
+	border: 1px solid var(--wp-stats-border, currentColor);
+	border-radius: 2px;
+	color: inherit;
+	text-decoration: none;
+}
+
+.wp-stats .wp-pagenavi a {
+	opacity: 0.75;
+	transition: opacity 0.15s ease-in-out;
+}
+
+.wp-stats .wp-pagenavi a:hover,
+.wp-stats .wp-pagenavi a:focus-visible {
+	opacity: 1;
+}
+
+.wp-stats .wp-pagenavi .current {
+	font-weight: 700;
+	background-color: var(--wp-stats-current-bg, rgb(0 0 0 / 8%));
+}
+
+/* The ellipsis between page ranges is a separator, not a control. */
+.wp-stats .wp-pagenavi .extend {
+	border-color: transparent;
+	opacity: 0.6;
+}
+
+@media (prefers-color-scheme: dark) {
+	.wp-stats .wp-pagenavi .current {
+		background-color: var(--wp-stats-current-bg, rgb(255 255 255 / 12%));
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.wp-stats .wp-pagenavi a {
+		transition: none;
+	}
+}
