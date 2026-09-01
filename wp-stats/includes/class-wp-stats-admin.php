@@ -35,12 +35,37 @@ class WP_Stats_Admin {
 	const CAPABILITY = 'manage_options';
 
 	/**
-	 * Hook the screens up.
+	 * Hook registration.
 	 *
 	 * @return void
 	 */
 	public static function init() {
 		add_action( 'admin_menu', array( __CLASS__, 'add_page' ) );
+		add_filter(
+			'plugin_action_links_' . plugin_basename( WP_STATS_MAIN_FILE ),
+			array( __CLASS__, 'action_links' )
+		);
+	}
+
+	/**
+	 * Add a Settings link on the Plugins screen row.
+	 *
+	 * @param string[] $links Existing action links.
+	 * @return string[]
+	 */
+	public static function action_links( $links ) {
+		array_unshift(
+			$links,
+			sprintf(
+				'<a href="%s">%s</a>',
+				// The Settings tab, not the page's default: somebody who
+				// clicked "Settings" came to change one, not to read totals.
+				esc_url( self::tab_url( 'settings' ) ),
+				esc_html__( 'Settings', 'wp-stats' )
+			)
+		);
+
+		return $links;
 	}
 
 	/**
@@ -57,14 +82,14 @@ class WP_Stats_Admin {
 	 */
 	public static function capability( $context ) {
 		/**
-		 * Filter the capability a WP-Stats tab requires.
+		 * Filters the capability required to reach a WP-Stats screen.
 		 *
 		 * @since 3.0.0
 		 *
-		 * @param string $capability Capability name.
+		 * @param string $capability The required capability.
 		 * @param string $context    Which tab is asking.
 		 */
-		return apply_filters( 'wp_stats_capability', self::CAPABILITY, $context );
+		return (string) apply_filters( 'wp_stats_capability', self::CAPABILITY, $context );
 	}
 
 	/**

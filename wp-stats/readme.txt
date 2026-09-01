@@ -3,8 +3,8 @@ Contributors: GamerZ
 Donate link: https://lesterchan.net/site/donation/  
 Tags: stats, statistics, widget, popular, information  
 Requires at least: 6.8  
-Tested up to: 7.0  
-Stable tag: 3.0.0  
+Tested up to: 7.1  
+Stable tag: 3.0.1  
 Requires PHP: 8.2  
 License: GPLv2 or later  
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -112,6 +112,20 @@ It only appears now when a plugin has actually contributed a block. Before 3.0.0
 ### Why do my author counts look different?
 "Authors" now means the users who can publish posts, which is what the block always claimed to count. It used to be derived from the legacy `user_level` meta, and it excluded anyone with a password reset in progress.
 
+### My own code renders the stats page and it comes out unstyled
+The stylesheet loads only where WP-Stats can see the page coming: a `[page_stats]`
+shortcode or the block in the post being viewed, or the widget in a sidebar. It is
+enqueued from the head and nowhere else, so a theme calling `WP_Stats_Page::render()`
+itself, or markup fetched over `admin-ajax.php` into a page carrying none of the three,
+gets no stylesheet — and the paging strip in the per-commenter view is what that
+stylesheet is for.
+
+Say so from the page that will hold it:
+
+~~~
+add_filter( 'wp_stats_needs_styles', '__return_true' );
+~~~
+
 ## Screenshots
 
 1. Stats -> Statistics: the site, then a section for every plugin that contributes one
@@ -120,10 +134,13 @@ It only appears now when a plugin has actually contributed a block. Before 3.0.0
 4. The widget, in a sidebar
 
 ## Changelog
+### 3.0.1
+* NEW: A `wp_stats_needs_styles` filter, for code that renders the statistics where WP-Stats cannot see it coming. 3.0.0 loads the stylesheet only where it finds a `[page_stats]` shortcode or the block in the post being viewed, or the widget in a sidebar. A theme calling `WP_Stats_Page::render()` itself, or markup fetched over `admin-ajax.php` into a page carrying none of the three, is none of those and got no stylesheet — leaving the paging strip in the per-commenter view unstyled. Returning true from the filter is how such a page asks for it.
+
 ### 3.0.0
 * FIXED: Recent Posts and Most Commented did not honour a site's own `posts_where` filter. `get_posts()` suppresses filters by default, so a membership or paywall plugin hiding published posts had them listed on the public statistics page anyway — which contradicted the reasoning the rest of the file is built on, that these queries go through core's APIs precisely so a site's content rules still apply
 * FIXED: One of the three places that builds an author link did not escape the URL, relying instead on the caller having encoded the name first. It happens to be true today; nothing enforces it
-* BREAKING: Requires WordPress 6.8 and PHP 8.2, up from 6.0 and 7.4.
+* BREAKING: Requires WordPress 6.8 and PHP 8.2.
 * BREAKING: The `stats_url`, `stats_mostlimit`, `stats_display`, `stats_options` and `stats_db_version` rows are replaced by `wp_stats_options` and `wp_stats_version`, migrated automatically on upgrade and then deleted. The old names are no longer answered.
 * BREAKING: The unprefixed `stats_page` filter is now `wp_stats_page`, and is handed the page complete with its wrapper element.
 * BREAKING: The seven `wp_stats_page_*` filters, the two `wp_stats_paging_*` filters and the seven `wp_stats_page_admin_*` filters are removed. A plugin contributing a block answers `wp_stats_sections` and renders through `wp_stats_section_<slug>`.

@@ -35,12 +35,10 @@ class WP_Stats {
 	}
 
 	/**
-	 * Wire everything up.
-	 *
-	 * Registered at file-load time, which is where WordPress requires
-	 * activation hooks to be added.
+	 * Register hooks.
 	 */
-	protected function __construct() {
+	private function __construct() {
+		// Must be registered at file-load time, which is when this runs.
 		register_activation_hook( WP_STATS_MAIN_FILE, array( __CLASS__, 'activate' ) );
 
 		WP_Stats_Options::register();
@@ -57,12 +55,12 @@ class WP_Stats {
 	/**
 	 * Create the options on activation, on every site of a network activation.
 	 *
-	 * @param bool $network_wide Whether the plugin is being network activated.
+	 * @param bool $network_wide Whether the plugin is being activated network-wide.
 	 * @return void
 	 */
 	public static function activate( $network_wide = false ) {
 		if ( is_multisite() && $network_wide ) {
-			// 'number' => 0 lifts WP_Site_Query's default cap of 100.
+			// 'number' => 0 lifts WP_Site_Query's default cap of 100, which would otherwise skip every site past the hundredth while reporting success.
 			$site_ids = get_sites(
 				array(
 					'fields' => 'ids',
@@ -71,6 +69,7 @@ class WP_Stats {
 			);
 
 			foreach ( $site_ids as $site_id ) {
+				// Inside the loop: switch_to_blog() pushes onto a stack, so restoring once after the loop unwinds it by exactly one.
 				switch_to_blog( (int) $site_id );
 				WP_Stats_Options::activate();
 				restore_current_blog();
@@ -121,6 +120,10 @@ class WP_Stats {
 	 * are scoped under .wp-stats now, so both sheets can load and neither has
 	 * anything to say about the other's markup.
 	 *
+	 * There is only this one pass -- nothing here renders later than the head
+	 * -- so a page the detection cannot see says so through the
+	 * `wp_stats_needs_styles` filter.
+	 *
 	 * @return void
 	 */
 	public static function enqueue_styles() {
@@ -128,7 +131,7 @@ class WP_Stats {
 			return;
 		}
 
-		wp_enqueue_style( 'wp-stats', plugins_url( 'css/wp-stats.css', WP_STATS_MAIN_FILE ), array(), WP_STATS_VERSION );
+		wp_enqueue_style( 'wp-stats', WP_STATS_URL . 'css/wp-stats.css', array(), WP_STATS_VERSION );
 	}
 
 	/**
@@ -144,6 +147,32 @@ class WP_Stats {
 	 * @return bool
 	 */
 	protected static function needs_styles() {
+		/**
+		 * Filters whether the stylesheet is enqueued.
+		 *
+		 * The shapes detected here are the ones a plugin can see before the
+		 * page is built. Something that renders the statistics by another
+		 * route -- markup fetched over AJAX into an already loaded page, a
+		 * template calling WP_Stats_Page::render() itself -- is invisible to
+		 * both, and returning true says so.
+		 *
+		 * There is no second pass to fall back on: this plugin enqueues from
+		 * the head and nowhere else, so returning false here leaves any
+		 * statistics on the page unstyled.
+		 *
+		 * @since 3.0.1
+		 *
+		 * @param bool $needs_styles Whether the statistics were detected.
+		 */
+		return (bool) apply_filters( 'wp_stats_needs_styles', self::detect_stats() );
+	}
+
+	/**
+	 * Whether the statistics are visible in the request before the page is built.
+	 *
+	 * @return bool
+	 */
+	protected static function detect_stats() {
 		if ( is_active_widget( false, false, 'stats', true ) ) {
 			return true;
 		}
